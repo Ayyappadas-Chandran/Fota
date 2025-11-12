@@ -1,0 +1,16 @@
+{
+  "name": "streaming-001",
+  "url": "https://bpfsuu5xvj.execute-api.ap-south-1.amazonaws.com/default/s3uploadurlcreatorv1-dev-getPreSignedURLToPutToS3-dev",
+  "ab_install_type": "STREAMING",
+  "ab_config": {
+    "verify_payload_metadata": true,
+    "force_switch_slot": true,
+    "property_files": [
+      {
+        "filename": "payload.bin",
+        "offset": 195,
+        "size": 8
+      }
+    ]
+  }
+}

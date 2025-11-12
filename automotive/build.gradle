@@ -1,0 +1,52 @@
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+android {
+    namespace 'com.ultraviolette.fotaservice'
+    compileSdk {
+        version = release(36)
+    }
+
+    defaultConfig {
+        applicationId "com.ultraviolette.fotaservice"
+        minSdk 34
+        targetSdk 36
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    buildFeatures {
+        aidl = true   // <-- enables AIDL compilation
+    }
+    sourceSets {
+        main {
+            aidl.srcDirs = ['src/main/aidl']
+        }
+    }
+}
+
+dependencies {
+    implementation (libs.appcompat) {
+        exclude group: "org.jetbrains.kotlin"
+    }
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.10' // match the version with your androidx libraries
+    implementation 'com.google.guava:guava:33.2.0-jre' //for atomicInteger,Precondition
+    implementation 'org.apache.commons:commons-compress:1.21'// for TarArchiveInputStream
+    testImplementation libs.junit
+    androidTestImplementation libs.ext.junit
+    androidTestImplementation libs.espresso.core
+    compileOnly files("libs/javalib.jar")
+}

@@ -1,0 +1,5 @@
+{
+  "operation": "FOTA_UPDATE",
+  "fileName": "OTA.jar",
+  "fileType": "jar"
+}
