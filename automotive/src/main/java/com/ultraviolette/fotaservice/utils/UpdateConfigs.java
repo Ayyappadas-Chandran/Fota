@@ -70,6 +70,7 @@ public final class UpdateConfigs {
     }*/
 
     public static UpdateConfig getUpdateConfig(String path) {
+        //data/vendor/uv_fota/fota/AndroidFiles
         File configFile = new File(path, "fota_update.json");
         ensureConfigDirectory();
         if (!configFile.exists()) {
@@ -102,7 +103,7 @@ public final class UpdateConfigs {
             dir.setWritable(true, false);
             dir.setExecutable(true, false);
         }
-        {
+        else {
             Log.e("FotaService.UpdateConfigs", "inside ensureConfigDirectory.Directory exists");
         }
     }

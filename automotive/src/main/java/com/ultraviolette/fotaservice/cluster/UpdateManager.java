@@ -16,7 +16,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AtomicDouble;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -313,7 +315,9 @@ public class UpdateManager {
                         .build();
 
                 // This calls UpdateEngine.applyPayload()
-                updateEngineApplyPayload(updateData);
+                //updateEngineApplyPayload(updateData);
+                //TODO Commented Streaming and applied Non-Streaming(Local) payload update
+                updateEngineApplyLocalPayload(updateData);
             }
 
             @Override
@@ -377,16 +381,59 @@ public class UpdateManager {
         //TODO : IF full Download
         //mUpdateEngine.applyPayload(pathToDownloadedFIle, 0, totalFileSize, new String[]{});
     }
+    //TODO : Written for Local Payload(Non-Streaming)
+    private void updateEngineApplyLocalPayload(UpdateData update) {
+        Log.d(TAG, "updateEngineApplyPayload invoked with url " + update.mPayload.getUrl());
+
+        synchronized (mLock) {
+            mLastUpdateData = update;
+        }
+
+        ArrayList<String> properties = new ArrayList<>(update.getPayload().getProperties());
+        properties.addAll(update.getExtraProperties());
+
+        //TODO : Removed the dependency with update engine. Later need to implement
+        /*try {
+            mUpdateEngine.applyPayload(
+                    update.getPayload().getUrl(),
+                    update.getPayload().getOffset(),
+                    update.getPayload().getSize(),
+                    properties.toArray(new String[0]));
+        } catch (Exception e) {
+            Log.e(TAG, "UpdateEngine failed to apply the update", e);
+            setUpdaterStateSilent(UpdaterState.ERROR);
+        }*/
+        //TODO : IF full Download
+        //mUpdateEngine.applyPayload(pathToDownloadedFIle, 0, totalFileSize, new String[]{});
+    }
     //TODO : Taking it from the local rather than from Remote URL.
 
-    public void applyLocalPayload(String localPayloadPath, String[] headers) {
-        File payloadFile = new File(localPayloadPath);
-
+    public void applyLocalPayload(String localPayloadPath) {
+        File payloadFile = new File(localPayloadPath + "/payload.bin");
+        Log.e(TAG, "applyLocalPayload for file " + payloadFile);
         try {
             ParcelFileDescriptor pfd = ParcelFileDescriptor.open(
                     payloadFile,
                     ParcelFileDescriptor.MODE_READ_ONLY
             );
+
+            List<String> headers = new ArrayList<>();
+            try (BufferedReader br = new BufferedReader(new FileReader(localPayloadPath + "/payload_properties.txt"))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    String[] kv = line.split("=", 2);
+                    if (kv.length == 2) {
+                        headers.add(kv[0]);
+                        headers.add(kv[1]);
+                        Log.e(TAG, "Values inside payload properties" + kv[0] + " = " + kv[1]);
+                    }
+                }
+            }
+            String[] headerKeyValuePairs = headers.toArray(new String[0]);
+            Log.e(TAG, "headerKeyValuePairs0 " + headerKeyValuePairs[0]);
+            Log.e(TAG, "headerKeyValuePairs1 " + headerKeyValuePairs[1]);
+            Log.e(TAG, "headerKeyValuePairs2 " + headerKeyValuePairs[2]);
+
 
             // Get size if not known (headers may include FILE_SIZE)
             StatFs stat = new StatFs(localPayloadPath);
@@ -396,10 +443,10 @@ public class UpdateManager {
                     payloadFile.length()  // length
             );
 
-            //mUpdateEngine.applyPayload(assetFd, headers);
+            //mUpdateEngine.applyPayload(assetFd, headerKeyValuePairs);
             Log.d(TAG, "Applying local payload from : " + localPayloadPath);
         } catch (Exception e) {
-            Log.e("OTA", "Apply failed", e);
+            Log.e(TAG, "Apply failed", e);
         }
     }
 

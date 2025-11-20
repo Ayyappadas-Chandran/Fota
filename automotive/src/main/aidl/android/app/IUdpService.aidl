@@ -11,6 +11,7 @@ interface IUdpService {
     String sayHello(String name);
     void sendDataToVCU(in byte[] data);
     void startOta(IOtaCompleteListener listener);
+    boolean signatureVerification(String file, String publicKey);
 
     void registerVcuDataListener(IVcuDataListener listener);
     void unregisterVcuDataListener(IVcuDataListener listener);

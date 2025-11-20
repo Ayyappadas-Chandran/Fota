@@ -8,6 +8,12 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+
     <permission
         android:name="com.ultraviolette.permission.BIND_FOTA_SERVICE"
         android:protectionLevel="signature" />
@@ -28,6 +34,7 @@
         <service
             android:name=".FotaService"
             android:exported="true"
+            android:foregroundServiceType="dataSync|specialUse"
             android:permission="com.ultraviolette.permission.BIND_FOTA_SERVICE">
         <intent-filter>
             <action android:name="com.ultraviolette.fota.CLOUD_BINDER"/>
@@ -35,6 +42,12 @@
             <action android:name="com.ultraviolette.fotaservice.action.BIND_FOTA" />
         </intent-filter>
         </service>
+        <receiver android:name=".FotaReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

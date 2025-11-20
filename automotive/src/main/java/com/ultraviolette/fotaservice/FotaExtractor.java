@@ -61,8 +61,35 @@ public class FotaExtractor {
 
                 // ----- only process .zip modules -----
                 if (entryName.toLowerCase().endsWith(".zip")) {
-
+                    Log.i(TAG, "Zip file found: " + entryName);
                     // strip any leading path → keep only the file name
+                    String zipFileName = new File(entryName).getName();
+                    //String moduleName = getModuleName(zipFileName);
+                    String moduleName = "AndroidFiles";
+
+                    File moduleDir = new File(baseDir, moduleName);
+                    if (!moduleDir.exists() && !moduleDir.mkdirs()) {
+                        Log.e(TAG, "Failed to create module dir: " + moduleDir.getAbsolutePath());
+                        continue;
+                    }
+
+                    File zipFile = new File(moduleDir, zipFileName);
+
+                    // write the .zip from the tar stream
+                    try (FileOutputStream fos = new FileOutputStream(zipFile)) {
+                        byte[] buffer = new byte[4096];
+                        int len;
+                        while ((len = tis.read(buffer)) > 0) {
+                            fos.write(buffer, 0, len);
+                        }
+                    }
+                    Log.i(TAG, "Saved ZIP: " + zipFile.getAbsolutePath());
+
+                    // now unpack the inner .zip
+                    extractZip(zipFile, moduleDir);
+                }
+                else {
+                    Log.i(TAG, "Non-Zip file found: " + entryName);
                     String zipFileName = new File(entryName).getName();
                     //String moduleName = getModuleName(zipFileName);
                     String moduleName = "extractedFiles";
@@ -84,8 +111,6 @@ public class FotaExtractor {
                         }
                     }
                     Log.i(TAG, "Saved ZIP: " + zipFile.getAbsolutePath());
-
-                    // now unpack the inner .zip
                     extractZip(zipFile, moduleDir);
                 }
             }

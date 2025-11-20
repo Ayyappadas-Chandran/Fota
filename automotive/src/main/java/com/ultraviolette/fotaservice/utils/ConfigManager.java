@@ -17,7 +17,7 @@ public class ConfigManager {
     //private static final String CONFIG_PATH = "/data/system/fota_config.json";
     //private static final String CONFIG_DIR = "/data/vendor/udp_socket/";
     private static final String CONFIG_DIR = "/data/vendor/uv_fota/";
-    private static final String CONFIG_PATH = CONFIG_DIR + "/fota_config.json";
+    private static final String CONFIG_PATH = CONFIG_DIR + "fota_config.json";
 
     private JSONObject configJson;
 

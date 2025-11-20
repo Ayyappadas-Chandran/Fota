@@ -54,12 +54,13 @@ public class PrepareUpdate {
                 throw new PreparationFailedException("Payload metadata is not compatible");
             }
         }
-        TODO :
+        //TODO : This is for Non-Streaming (Local)
         /*if (config.getInstallType() == UpdateConfig.AB_INSTALL_TYPE_NON_STREAMING) {
             Log.e(TAG, "PrepareUpdate Install type AB_INSTALL_TYPE_NON_STREAMING.");
             return mPayloadSpecs.forNonStreaming(config.getUpdatePackageFile());
         }*/
 
+        //TODO : This is for the Streaming.
         downloadPreStreamingFiles(config, OTA_PACKAGE_DIR);
 
         Optional<UpdateConfig.PackageFile> payloadBinary =

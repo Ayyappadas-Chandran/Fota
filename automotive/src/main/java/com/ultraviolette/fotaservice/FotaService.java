@@ -3,6 +3,9 @@ package com.ultraviolette.fotaservice;
 import android.app.DownloadManager;
 import android.app.IOtaCompleteListener;
 import android.app.IUdpService;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
@@ -44,24 +47,31 @@ public class FotaService extends Service {
             new UpdateManager(new UpdateEngine(), new Handler());
     private UpdateConfig mConfigs;
     private static final String UDP_SERVICE_NAME = "udp";
-    private String DOWNLOAD_PATH = "data/vendor/uv_fota";
+    private String DOWNLOAD_PATH = "data/vendor/uv_fota/fota/fota.tar";
+    private String EXTRACTED_PATH = "data/vendor/uv_fota/fota/";
+
+    private String ANDROID_PAYLOAD = "data/vendor/uv_fota/fota/AndroidFiles";
+    private String KEY_PATH = "/data/vendor/key/fw_pkey.pem";
+    private boolean signatureVerf = false;
 
     // Keeps track ofsetLastUpdateStatus registered listeners from CloudObserverService
     private final RemoteCallbackList<IFotaCallback> listeners = new RemoteCallbackList<>();
     private final RemoteCallbackList<IFotaS3Callback> s3Listener = new RemoteCallbackList<>();
+/*    private static final int NOTIFICATION_ID = 1001;
+    private Notification notification;*/
 
     // AIDL binder to expose to MQTTService
     private final IFotaMqttEvents.Stub binder = new IFotaMqttEvents.Stub() {
 
         @Override
-        public void fotaUpdateAvailable(String payloadUrl) {
-            Log.e(TAG, "Received OTA data from MQTTService: " + " / " + payloadUrl);
+        public void fotaUpdateAvailable(String fileName) {
+            Log.e(TAG, "Received OTA data from MQTTService: " + " / " + fileName);
             //TODO : For testing this need to be called only after success message recieved from S3Service.
             String downloadDir = "data/local/tmp/cloud_download";
             // Internally notify all registered listeners
             try {
                 Log.e(TAG, "S3Service fotaDownloadRequest ");
-                s3Service.fotaDownloadRequest("Requestcall for fota download");
+                s3Service.fotaDownloadRequest(fileName);
                 Log.e(TAG, "S3Service fotaDownloadRequest called");
 
             } catch (RemoteException e) {
@@ -107,9 +117,7 @@ public class FotaService extends Service {
 
             //If s3 is downloading then we need to look for path and file)
 
-            //String downloadDir = "data/local/tmp/cloud_download/fota/";
-            String downloadDir = "/data/vendor/uv_fota/fota";
-            downloadOtaUpdate(payloadUrl, downloadDir);
+            downloadOtaUpdate(payloadUrl, EXTRACTED_PATH);
         }
     };
 
@@ -120,11 +128,11 @@ public class FotaService extends Service {
         //mConfigManager = new ConfigManager();
         //mUpdateEngine = new UpdateEngine();
         Log.i(TAG, "FotaService created and config loaded");
+        //notification = buildForegroundNotification();
         bindToUpdateEngine();
         bindToS3Service();
         updateEngineCallbackListners();
         connectToHelloService();
-        vcuAckCallbackListners();
 
     }
 
@@ -135,11 +143,9 @@ public class FotaService extends Service {
             mUpdateManager.setOnEngineStatusUpdateCallback(null);
             mUpdateManager.setOnProgressUpdateCallback(null);
             mUpdateManager.setOnEngineCompleteCallback(null);
-
             // Unbind before destroying
             mUpdateManager.unbind();
             unbindService(s3Connection);
-
         }
         super.onDestroy();
     }
@@ -213,6 +219,7 @@ public class FotaService extends Service {
         public void onOtaCompleted(int success)
         {
             Log.e(TAG, String.format("fotaUdpCallback onOtaCompleted " + success));
+            startUpdateEngineUpdate();
         }
     };
     public void updateEngineCallbackListners() {
@@ -222,9 +229,9 @@ public class FotaService extends Service {
         this.mUpdateManager.setOnProgressUpdateCallback(this::onProgressUpdate);
     }
 
-    public void vcuAckCallbackListners()
+    public void startUpdateEngineUpdate()
     {
-
+        this.mUpdateManager.applyLocalPayload(ANDROID_PAYLOAD);
     }
 
     // Optional: send OTA update to all registered listeners
@@ -244,9 +251,9 @@ public class FotaService extends Service {
     public void downloadOtaUpdate(String payloadUrl, String destPath) {
         //TODO : Downloading the files need to happen here instead of downloading inside UpdateManager.
         //TODO : Because not just Android updates, vcu updates also need to download.
-        //boolean downloadStatus;
         Log.i(TAG, "downloadOtaUpdate DestPath " + destPath);
         boolean downloadStatus = payloadUrl.equals("SUCCESS");
+        Log.e(TAG, String.format("downloadStatus : " + downloadStatus));
         //TODO : Download is taken care by S3
         /*FileDownloader downloader = new FileDownloader(
                 payloadUrl,
@@ -259,27 +266,43 @@ public class FotaService extends Service {
             Log.e(TAG, String.format("Downloading OTA Update failed"));
             throw new RuntimeException(e);
         }*/
-        //TODO : Added the extraction logic and direct call to applyLoad for local downloaded fota file.
-        FotaExtractor extractor = new FotaExtractor(destPath);
-        boolean extractStatus = extractor.extractTar(destPath);
-        Log.e(TAG, String.format("extractStatus : " + extractStatus));
         //mUpdateManager.applyLocalPayload(destPath, );
         //TODO : For checking purpose only
-        downloadStatus = true;
+        //downloadStatus = true;
         if (downloadStatus)
         {
-            //TODO : To hmi or other modules
-            //notifyClientsDownloadComplete();
             try {
                 Log.e(TAG, String.format("Sending the status to Udp Service that download of OTA completed"));
-                mUdpService.startOta(fotaUdpCallback);
+                signatureVerf = mUdpService.signatureVerification(DOWNLOAD_PATH, KEY_PATH);
+                Log.e(TAG, String.format("Signature verification Status : " + signatureVerf));
             } catch (RemoteException e) {
                 Log.e(TAG, String.format("Sending the status to Udp Service failed"));
-
                 throw new RuntimeException(e);
             }
         }
-        mConfigs = UpdateConfigs.getUpdateConfig(destPath);
+        else
+        {
+            Log.e(TAG, String.format("DOWNLOAD WAS UNSUCCESSFUL"));
+        }
+        if (signatureVerf)
+        {
+            //TODO : Added the extraction logic and direct call to applyLoad for local downloaded fota file.
+            FotaExtractor extractor = new FotaExtractor(destPath);
+            boolean extractStatus = extractor.extractTar(destPath);
+            Log.e(TAG, String.format("extractStatus : " + extractStatus));
+            //TODO : To hmi or other modules
+            //notifyClientsDownloadComplete();
+            if(extractStatus) {
+                try {
+                    Log.e(TAG, String.format("Sending the status to Udp Service extraction done and start ota update"));
+                    mUdpService.startOta(fotaUdpCallback);
+                } catch (RemoteException e) {
+                    Log.e(TAG, String.format("Sending the status to Udp Service failed"));
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+        mConfigs = UpdateConfigs.getUpdateConfig(destPath + "/AndroidFiles");
 
         try {
             mUpdateManager.applyUpdate(this, mConfigs);
@@ -287,36 +310,6 @@ public class FotaService extends Service {
             throw new RuntimeException(e);
         }
 
-
-        /*new Thread(() -> {
-            try (InputStream in = new URL(payloadUrl).openStream()) {
-                Files.copy(in, Paths.get(destPath), StandardCopyOption.REPLACE_EXISTING);
-                Log.i(TAG, "FOTA package downloaded: " + destPath);
-                mConfigManager.setLastUpdateStatus("download_complete");
-                mConfigManager.saveConfig();
-
-                //Extract the downloaded OTA package.
-                String extractBaseDir = getApplicationContext().getFilesDir().getAbsolutePath() + "/fota/";
-                Log.i(TAG, "Extracting OTA content to: " + extractBaseDir);
-
-                FotaExtractor extractor = new FotaExtractor(extractBaseDir);
-                extractor.extractTar(destPath);
-
-                //
-                notifyClientsDownloadComplete(destPath);
-            } catch (Exception e) {
-                mConfigManager.setLastUpdateStatus("failed");
-                mConfigManager.saveConfig();
-                Log.e(TAG, "Download failed", e);
-            }
-        }).start();*/
-
-        /*FileDownloader downloader = new FileDownloader(
-                mConfigs.getUrl(),
-                metadataPackageFile.get().getOffset(),
-                metadataPackageFile.get().getSize(),
-                metadataPath.toFile());
-        downloader.download();*/
     }
 
 
@@ -383,6 +376,28 @@ public class FotaService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         // If needed, you can start foreground here, otherwise bound service will run when CloudObserver binds
+/*        if (notification == null) {
+            notification = buildForegroundNotification();
+        }
+        startForeground(NOTIFICATION_ID, notification);*/
         return START_STICKY;
+    }
+    private Notification buildForegroundNotification() {
+        String channelId = "fota_channel";
+
+        NotificationChannel channel = new NotificationChannel(
+                channelId,
+                "FOTA Service",
+                NotificationManager.IMPORTANCE_LOW
+        );
+
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        nm.createNotificationChannel(channel);
+
+        return new Notification.Builder(this, channelId)
+                .setContentTitle("FOTA Service Running")
+                .setContentText("Monitoring OTA updates")
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .build();
     }
 }
